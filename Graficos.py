@@ -49,7 +49,7 @@ class Canvas_graficafrecuencia(FigureCanvas):
         self.ax.plot(frecuencias, magnitude) # grafica fft
         self.ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
         self.ax.xaxis.get_offset_text().set_fontsize(10)  # Tamaño del texto "x10^"
-        plt.fill_between((0,60000000/2),(spurioamp,spurioamp),(famp,famp), label = 'SFDR',
+        plt.fill_between((0,(60000000/(diezmado*2)),(spurioamp,spurioamp),(famp,famp), label = 'SFDR',
                      color = "lightblue")  
         self.ax.plot(findice, famp, marker="s", label=f'fundamental =  {famp:.2f}')
         self.ax.plot(spurioindice, spurioamp, marker="s",label =f'spurs =  {spurioamp:.2f} ')
