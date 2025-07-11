@@ -129,9 +129,9 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
         dataord,self.inicio=ordenar_datos(secuencia,data_in,self.cantmuestras)
         datosreales,long=diezmar_muestras(dataord,self.inicio,self.numdiezmado)
         self.valoresdemuestras=datosreales
-        with open('datosoriginales2711.txt', 'w') as archivo:
-           archivo.write(' '.join(map(str, secuencia)))
-
+        self.pushButton.setStyleSheet(" border-radius: 10px; \n"
+                    "background-color: rgb(0, 85, 0);\n"
+                    "  border: none;") 
         print(os.getcwd())
         archivo2, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Guardar archivo", "", "Text Files (*.txt);;All Files (*)")
         if archivo2:
@@ -141,10 +141,7 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
                 self.label_8.setText(f"Archivo guardado en:\n  {archivo2}")
                 self.graficar.setEnabled(True)
                 self.Calcular.setEnabled(True)
-                self.guardararchivo.setEnabled(False)
-                self.pushButton.setStyleSheet(" border-radius: 10px; \n"
-                    "background-color: rgb(0, 85, 0);\n"
-                    "  border: none;")        
+                self.guardararchivo.setEnabled(False)       
         self.label_6.setText("")
         self.aplicarajustes.setEnabled(True)
         
