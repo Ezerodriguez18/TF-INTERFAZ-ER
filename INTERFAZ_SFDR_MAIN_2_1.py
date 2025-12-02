@@ -1,14 +1,15 @@
 from PyQt5 import QtCore,QtGui,QtWidgets
 from PyQt5.QtCore import QTimer
-from INTERFAZ_SFDR1_1_3 import *
+from PyQt5.QtWidgets import QApplication
+from INTERFAZ_SFDR1_1_3_2 import *
 from Graficos import *
 from ORDENAR import ordenar_datos
 from DIEZMAR import diezmar_muestras
 from Separacion import separar
 import serial
-import serial.tools.list_ports
+#import serial.tools.list_ports
+from serial.tools import list_ports
 import os
-from PyQt5.QtWidgets import QApplication
 import numpy as np
 from pysnr import utils
 
@@ -31,7 +32,7 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
         self.Magnitude=None 
 
         self.guardararchivo.setEnabled(False)
-        self.graficar.setEnabled(False)
+        self.graficarycalcular.setEnabled(False)
         self.Calcular.setEnabled(False) 
         self.pushButton.setEnabled(False)
         self.aplicarajustes.setEnabled(False)
@@ -58,7 +59,7 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
         self.seleccionarprng.clicked.connect(self.abrirprng)
         self.aplicarajustes.clicked.connect(self.enviarajustes)
         self.guardararchivo.clicked.connect(self.guardartimer)
-        self.graficar.clicked.connect(self.grafico)
+        self.graficarycalcular.clicked.connect(self.grafico)
         self.Calcular.clicked.connect(self.calculo)
         
      #Seleccionar PRNG
@@ -78,20 +79,20 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
                     self.arreglodeprng = num2.to_bytes(cant, byteorder='big')
                     self.label_5.setText(f"Archivo seleccionado: {nombre_archivo}")
                     self.aplicarajustes.setEnabled(True)
-                    self.graficar.setEnabled(False)
+                    self.graficarycalcular.setEnabled(False)
                     self.Calcular.setEnabled(False) 
                     self.label_8.setText("")
             except Exception as e:
                 self.label_5.setText("Error al seleccionar el archivo")
                 self.aplicarajustes.setEnabled(False)
-                self.graficar.setEnabled(False)
+                self.graficarycalcular.setEnabled(False)
                 self.Calcular.setEnabled(False) 
                 self.label_8.setText("")
     
     #Enviar parametros
     def enviarajustes(self):
         self.cantmuestras=int(self.comboBox_muestras.currentText())
-        self.numdiezmado=int((self.comboBox_frecuencia.currentText()))
+        self.numdiezmado=1
         self.label_6.setText("Preparando ajustes")
         if self.cantmuestras==1024:
                cantidaddemuestras=1
@@ -109,23 +110,24 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
         if (len(self.arreglodeprng*8)==self.cantmuestras):
             self.label_6.setText("Enviando parametros")
             QApplication.processEvents()  # fuerza el refresco de la GUI
-            self.puerto_serie = serial.Serial(self.com,baudrate=115200,bytesize=serial.EIGHTBITS,parity=serial.PARITY_NONE,stopbits=1,timeout=400)# preguntar self.com
+            self.puerto_serie = serial.Serial(self.com,baudrate=115200,bytesize=serial.EIGHTBITS,parity=serial.PARITY_NONE,stopbits=1,timeout=400)
             self.puerto_serie.write(bytes.fromhex('23 53 44'))# comando que indica que van las muestras
             self.puerto_serie.write(cantidaddemuestras.to_bytes(1, byteorder='big') ) 
             self.puerto_serie.write(bytes.fromhex('01'))
             self.puerto_serie.write(self.arreglodeprng)
             receptor=self.puerto_serie.read(size=1)
             if int.from_bytes(receptor, byteorder='big') == 0x11: # en hexa 11, aviso de que se lleno la memoria SDRAM
-                self.guardararchivo.setEnabled(True)
-                self.label_6.setText("Muestras tomadas en la memoria")
-                self.pushButton.setEnabled(True)
-                self.aplicarajustes.setEnabled(False)
-                self.graficar.setEnabled(False)
-                self.Calcular.setEnabled(False) 
+                    self.guardararchivo.setEnabled(True)
+                    self.label_6.setText("Muestras alamcenadas en la SDRAM")
+                    self.pushButton.setEnabled(True)
+                    self.aplicarajustes.setEnabled(False)
+                    self.graficarycalcular.setEnabled(False)
+                    self.Calcular.setEnabled(False) 
             else:
-                self.label_6.setText("Error en la comunicacion, reiniciar placa de adquisicion y enviar de nuevo")
+                    self.label_6.setText("Error en la comunicacion, reiniciar placa de adquisicion y enviar de nuevo")
+    
         else:
-                self.label_6.setText("el archivo seleccionado no coincide\n con la cantidad de muestras elegidas")
+            self.label_6.setText("el archivo seleccionado no coincide\n con la cantidad de muestras elegidas")
 
        # Guardado de archivo   
     def guardartimer(self):
@@ -140,12 +142,14 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
         self.pushButton.setStyleSheet(" border-radius: 10px; \n"
                     "background-color: rgb(0, 85, 0);\n"
                     "  border: none;")
-        QApplication.processEvents()  # fuerza el refresco de la GUI
         data_in,secuencia=separar(self.cantmuestras,lectura)
         dataord,self.inicio=ordenar_datos(secuencia,data_in,self.cantmuestras)
-        datosreales,long=diezmar_muestras(dataord,self.inicio,self.numdiezmado)
-        self.valoresdemuestras=datosreales
+        self.valoresdemuestras=dataord
         self.label_8.setText("")
+        with open('secuencia.txt', 'w') as archivo:
+           archivo.write(' '.join(map(str, secuencia)))
+
+        print(os.getcwd())
         archivo2, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Guardar archivo", "", "Text Files (*.txt);;All Files (*)")
         if archivo2:
             try:
@@ -155,7 +159,7 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
                     self.label_8.setText(f"Archivo guardado en:\n  {archivo2}") 
             except Exception as e:
                 self.label_8.setText("Error al guardar el archivo") 
-        self.graficar.setEnabled(True)
+        self.graficarycalcular.setEnabled(True)
         self.Calcular.setEnabled(True)
         self.guardararchivo.setEnabled(False)   
         self.label_6.setText("")
@@ -164,7 +168,8 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
    
    #grafico y calculo
     def grafico(self):
-        TS=1/(60*1e6//(self.numdiezmado))
+       # self.valoresdemuestras = np.loadtxt("muestras16384.txt")
+        TS=1/(60*1e6)
         t = np.linspace(0,TS*(len(self.valoresdemuestras)-1) , num=len(self.valoresdemuestras))  # inicio, final, cantidad de muestras en ese tiempo.
         x=self.valoresdemuestras
         self.graficatiempo.plot(t,x)
@@ -177,8 +182,9 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
     #Calculo sfdr
     def calculo(self):
         #Calculo sfdr por densidad espectral para obtener los indices de power spectrum
+       # self.valoresdemuestras = np.loadtxt("16k_2.txt")
         signal_no_dc = utils._remove_dc_component(self.valoresdemuestras)
-        f, pxx = utils.periodogram(signal_no_dc, 60*1e6//(self.numdiezmado), window=('kaiser', 38), method="welch", scaling="density")
+        f, pxx = utils.periodogram(signal_no_dc, 60*1e6//(1), window=('kaiser', 38), method="welch", scaling="density")
         
 
         origPxx = np.copy(pxx)
@@ -208,20 +214,19 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
         spur_pxx = np.copy(pxx[iLeft:iRight + 1])
         spur_f = np.copy(f[iLeft:iRight + 1])
 
-        signal_power = utils.bandpower(signal_pxx, signal_f)
-        spur_power = utils.bandpower(spur_pxx, spur_f)
-        sfdr_value=utils.mag2db(signal_power/spur_power)
+        #signal_power = utils.bandpower(signal_pxx, signal_f)
+        #spur_power = utils.bandpower(spur_pxx, spur_f)
+        #sfdr_value=utils.mag2db(signal_power/spur_power)
 
         # para grafico a partir de power spectrum
-        f, pxx =utils.periodogram(signal_no_dc, (60e6)//(self.numdiezmado), window=('kaiser', 38),method="welch", scaling="spectrum")
+        f, pxx =utils.periodogram(self.valoresdemuestras, (60e6)//(self.numdiezmado), window=('kaiser', 38),method="welch", scaling="spectrum")
         Magnitude=10*np.log10(pxx)
 
         spurioamp=Magnitude[spur_idx] 
         fundamental_power_dB = Magnitude[ fh_idx]
-        #sfdr_value=fundamental_power_dB-spurioamp
+        sfdr_value=fundamental_power_dB-spurioamp
         
-        self.graficafrecuencia.plot(f,Magnitude,first_harmonic,fundamental_power_dB,spur_freq,spurioamp,self.numdiezmado,len(self.valoresdemuestras))
-        #valor sfdr a partir de densidad espectral
+        self.graficafrecuencia.plot(f,Magnitude,first_harmonic,fundamental_power_dB,spur_freq,spurioamp,1,len(self.valoresdemuestras),sfdr_value)
         sfdrenveces=10**(sfdr_value/20)
         self.label_9.setText(f"SFDR={sfdrenveces} veces\n SFDR(dB)={sfdr_value} dB")
 
@@ -233,7 +238,7 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
                     self.label_10.setText("El dispositivo no esta conectado")
                     self.aplicarajustes.setEnabled(False)
                     self.guardararchivo.setEnabled(False)
-                    self.graficar.setEnabled(False)
+                    self.graficarycalcular.setEnabled(False)
                     self.Calcular.setEnabled(False) 
                     self.pushButton.setEnabled(False)
             else:
@@ -241,6 +246,13 @@ class MainWindow (QtWidgets.QMainWindow, Ui_MainWindow):
                     if info.description.startswith('USB Serial Port'):
                         self.label_10.setText("Se conecto el dispositivo")
                         self.com=info.device
+                    else:
+                        self.label_10.setText("El dispositivo conectado no es la FPGA")
+                        self.aplicarajustes.setEnabled(False)
+                        self.guardararchivo.setEnabled(False)
+                        self.graficarycalcular.setEnabled(False)
+                        self.Calcular.setEnabled(False) 
+                        self.pushButton.setEnabled(False)
             return
 
 
